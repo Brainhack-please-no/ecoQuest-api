@@ -240,3 +240,27 @@ class GitHubLogin(Resource):
                     "username": user_json['username'],
                     "token": token,
                 }}, 200
+
+
+@rest_api.route('/api/users/data/<int:user_id>')
+class UserData(Resource):
+    def get(self, user_id):
+        user = Users.query.get(user_id)
+        if user is None:
+            return {"error": "User not found"}, 404
+        return {"name": user.name, "points": user.points, "xp": user.xp, "level": user.level, "family_size": user.family_size}, 200
+
+    def post(self, user_id):
+        user = Users.query.get(user_id)
+        if user is None:
+            return {"error": "User not found"}, 404
+
+        data = request.get_json()
+        user.name = data.get('name', user.name)
+        user.points = data.get('points', user.points)
+        user.xp = data.get('xp', user.xp)
+        user.level = data.get('level' , user.level)
+        user.family_size = data.get('family_size', user.family_size)
+        user.save()
+
+        return {"name": user.name, "points": user.points, "xp": user.xp, "level": user.level, "family_size": user.family_size}, 200

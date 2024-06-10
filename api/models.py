@@ -15,6 +15,11 @@ db = SQLAlchemy()
 
 class Users(db.Model):
     id = db.Column(db.Integer(), primary_key=True)
+    name = db.Column(db.String(64), nullable=False)  # new field
+    points = db.Column(db.Integer(), default=0)  # new field
+    xp = db.Column(db.Integer(), default=0)  # new field
+    level = db.Column(db.Integer(), default=0)  # new field
+    family_size = db.Column(db.Integer(), default=0)  # new field
     username = db.Column(db.String(32), nullable=False)
     email = db.Column(db.String(64), nullable=True)
     password = db.Column(db.Text())
@@ -59,18 +64,20 @@ class Users(db.Model):
         return cls.query.filter_by(username=username).first()
 
     def toDICT(self):
-
         cls_dict = {}
         cls_dict['_id'] = self.id
         cls_dict['username'] = self.username
         cls_dict['email'] = self.email
+        cls_dict['name'] = self.name  # new field
+        cls_dict['points'] = self.points  # new field
+        cls_dict['xp'] = self.xp  # new field
+        cls_dict['level'] = self.level  # new field
+        cls_dict['family_size'] = self.family_size  # new field
 
         return cls_dict
 
     def toJSON(self):
-
         return self.toDICT()
-
 
 class JWTTokenBlocklist(db.Model):
     id = db.Column(db.Integer(), primary_key=True)
