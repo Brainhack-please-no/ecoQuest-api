@@ -94,8 +94,8 @@ class JWTTokenBlocklist(db.Model):
 class Quests(db.Model):     # Idk if this works
     id = db.Column(db.Integer(), primary_key=True)
     name = db.Column(db.String(), nullable=False, unique=True)
-    description = db.Column(db.String(), nullable=False)
-    status = db.Column(db.String(), nullable=False)  
+    description = db.Column(db.String(20), nullable=False)
+    status = db.Column(db.String(15), nullable=False)  
 
 def insert_quests():        # I also dk if this works sorry boss
     json_data = [
@@ -106,13 +106,8 @@ def insert_quests():        # I also dk if this works sorry boss
     },
     {
         "id": 2,
-        "name": "Zero Waste Warrior",
+        "name": "Green Shopper",
         "description": "descy :3"
-    },
-    {
-        "id": 3,
-        "name": "Conscious Consumer",
-        "description": "d"
     }
 ]
     for quest in json_data:
@@ -127,4 +122,67 @@ insert_quests()
 
 class UserQuests(db.Model):
     id = db.Column(db.Integer(), primary_key=True)
-    userid = db.Column(db.Integer(), )
+    userid = db.Column(db.Integer(), nullable=False)
+    status = db.Column(db.String(12), nullable=False)
+    expiry = db.Column(db.String(10), nullable=False)
+    completed = db.Column(db.String(10), nullable=True)
+
+    def update_status(self, status):
+        self.status = status
+
+    def update_completed(self, completed):
+        self.completed = completed
+    
+class Tasks(db.Model):
+    id = db.Column(db.Integer(), primary_key=True)
+    questId = db.Column(db.Integer(), primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    metric = db.Column(db.String(50), nullable=False)
+    requiredAmount = db.Column(db.Integer(), primary_key=False)
+    moreOrLess = db.Column(db.String(4), nullable=True)
+
+def insert_tasks():
+    json_data = [{
+        "id" : 1,
+        "questId" : 1,
+        "name" : "Purchase at least 1 product with no plastic packaging",
+        "metric" : "productsWithNoPlasticPackaging",
+        "moreOrLess" : "more",
+        "requiredAmount": 1
+    },
+    {
+        "id" : 2,
+        "questId" : 1,
+        "name" : "Use plastic bag less than 3 times when purchasing from supermarkets",
+        "metric" : "plasticBagsUsed",
+        "moreOrLess" : "less",
+        "requiredAmount": 3     
+    },
+    {
+        "id" : 1,
+        "questId" : 2,
+        "name" : "Purchase a new set of sustainable office supplies (eg. recycled paper, bamboo pens, recycled notebooks) for your workspace.",
+        "metric" : "sustainableOfficeSupplies",
+        "moreOrLess" : "more",
+        "requiredAmount": 3     
+    },
+    {
+        "id" : 2,
+        "questId" : 2,
+        "name" : "Stock up with at least 5 new plant based food items or meat alternatives from sustainable brands.",
+        "metric" : "plantBasedFood",
+        "moreOrLess" : "more",
+        "requiredAmount": 5     
+    },]
+    for task in json_data:
+        new_task = Tasks(
+            id = task['id'],
+            questId = task['questId'],
+            name = task['name'],
+            metric = task['metric'], 
+            moreOrLess = task['moreOrLess'],
+            requiredAmount = task['requiredAmount']
+        )
+        db.session.add(new_task)
+    db.session.commit()
+insert_tasks()          # no clue which file to insert into db but yeah
