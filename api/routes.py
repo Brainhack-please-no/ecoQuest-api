@@ -7,6 +7,8 @@ from datetime import datetime, timezone, timedelta
 
 from functools import wraps
 
+from dotenv import load_dotenv
+
 from flask import request, jsonify
 from flask_restx import Api, Resource, fields
 
@@ -15,13 +17,14 @@ from werkzeug.utils import secure_filename
 import requests
 import base64
 import jwt
+import os
 
 from .models import db, Users, JWTTokenBlocklist
 from .config import BaseConfig
 import requests
 
 rest_api = Api(version="1.0", title="Users API")
-
+load_dotenv('.env__')
 
 """
     Flask-Restx models for api request and response data
@@ -274,6 +277,7 @@ class Leaderboard(Resource):
     def get(self, user_id):
         users = Users.query.all()
         leaderboard = [{"username": user.username, "points": user.points, "xp": user.xp, "level": user.level, 'family_size': user.family_size} for user in users]
+        leaderboard.sort(key=lambda user: -user["points"])
         return jsonify(leaderboard)
 
 
@@ -289,15 +293,220 @@ class Scanner(Resource):
             return jsonify({"error": "No selected file"}), 400
 
         # Convert the image file to a base64 string
-        image_string = base64.b64encode(file.read()).decode('utf-8')
+        image_string_b64 = base64.b64encode(file.read()).decode('utf-8')
 
-        # Send the image to the remote server
-        response = requests.post('https://your-remote-server.com/api/scan', json={'image': image_string})
+        headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {os.getenv('API_KEY')}"
+        }
 
-        # Check the response
-        if response.status_code != 200:
-            return jsonify({"success": False, "error": "Failed to scan image"}), 500
+        payload = {
+        "model": "gpt-4o",
+        "messages": [
+            {
+            "role": "user",
+            "content": [
+                {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{image_string_b64}"
+                }
+                }
+            ]
+            },
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        #"text": "You will be presented with an image containing a receipt. Please parse the receipt and respond only with the format below: [{receipt_item: 'raw_receipt_name', value: 'no.of.items', name: 'name'}]. Based on the receipt item, find the closest corresponding actual item name as the name key, and the raw name as receipt_item. If the image does not contain a receipt, return an empty array. Do not respond to anything else.",
+#                         "text": """
 
-        # Return the scanned information
-        scanned_info = response.json().get('scanned_info')
-        return jsonify({"success": True, "scanned_info": scanned_info}), 200
+# *Objective:*
+
+# To accurately scan a receipt, identify the products listed, and match each product to the closest real-life product known in the database. This includes extracting product names, quantities, and prices, and providing a detailed output of the identified real-life products.
+
+# *Instructions:*
+
+# 1. *Receipt Scanning:*
+#    - Start by scanning the entire receipt.
+#    - Extract all text data from the receipt including product names, quantities, prices, and any additional information like store name and date.
+
+# 2. *Product Identification:*
+#    - Identify each product listed on the receipt.
+#    - Use OCR (Optical Character Recognition) to ensure accurate text extraction.
+#    - Cross-reference the extracted product names with a known product database to find the closest matching real-life product. 
+
+# 3. *Data Linking:*
+#    - For each identified product, provide the following details:
+#      - *Extracted Product Name:* The name as it appears on the receipt.
+#      - *Identified Real-Life Product Name:* The closest matching product name from the database.
+#      - *Quantity:* The quantity of the product purchased.
+#      - *Price:* The price listed on the receipt.
+#      - *Product Details:* Additional details of the matched real-life product (e.g., brand, description, category).
+
+# 4. *Error Handling:*
+#    - If a product cannot be matched with high confidence, flag it for review.
+#    - Provide suggestions for possible matches with confidence scores.
+
+# 5. *Output Format:*
+#    - Present the output in a structured format (e.g., JSON or tabular) including all relevant fields:
+#      json
+#      {
+#        "store_name": "Store Name",
+#        "date": "YYYY-MM-DD",
+#        "products": [
+#          {
+#            "extracted_product_name": "Extracted Name",
+#            "identified_real_life_product_name": "Matched Name",
+#            "quantity": 1,
+#            "price": 9.99,
+#            "product_details": {
+#              "brand": "Brand Name",
+#              "description": "Product Description",
+#              "category": "Product Category"
+#            }
+#          },
+#          ...
+#        ]
+#      }
+     
+
+# 6. *Example:*
+
+#    *Input:*
+   
+#    Walmart
+#    2023-06-12
+#    1x Apple - $0.99
+#    2x Bread - $3.49
+#    1x Milk - $2.99
+   
+
+#    *Output:*
+#    json
+#    {
+#      "store_name": "Walmart",
+#      "date": "2023-06-12",
+#      "products": [
+#        {
+#          "extracted_product_name": "Apple",
+#          "identified_real_life_product_name": "Granny Smith Apple",
+#          "quantity": 1,
+#          "price": 0.99,
+#          "product_details": {
+#            "brand": "Generic",
+#            "description": "Fresh Granny Smith Apple",
+#            "category": "Fruit"
+#          }
+#        },
+#        {
+#          "extracted_product_name": "Bread",
+#          "identified_real_life_product_name": "Whole Wheat Bread",
+#          "quantity": 2,
+#          "price": 3.49,
+#          "product_details": {
+#            "brand": "Wonder",
+#            "description": "Whole Wheat Sandwich Bread",
+#            "category": "Bakery"
+#          }
+#        },
+#        {
+#          "extracted_product_name": "Milk",
+#          "identified_real_life_product_name": "2% Milk",
+#          "quantity": 1,
+#          "price": 2.99,
+#          "product_details": {
+#            "brand": "Great Value",
+#            "description": "2% Reduced Fat Milk",
+#            "category": "Dairy"
+#          }
+#        }
+#      ]
+#    }
+   
+
+# *Guidelines:*
+
+# - Ensure high accuracy in text extraction and product matching.
+# - Maintain consistency in the output format.
+# - Prioritize user-friendly and readable outputs."""
+                        "text": """
+You are an AI trained to process and analyze receipts. Your task is to:
+
+1. *Scan the Receipt:*
+   - Read and extract all text from the provided receipt image or digital copy.
+   - Identify individual product entries on the receipt, including the product name, quantity, and price.
+
+2. *Identify Products:*
+   - Match each product entry with the closest known real-life product from a comprehensive database. Consider factors such as product name similarity, category, and price range.
+   - If multiple matches are possible, select the most likely option based on contextual clues and common purchasing patterns.
+
+3. *Evaluate Environmental Metrics:*
+   - For each identified product, determine the type and quantity of plastic packaging used.
+   - Assess the eco-friendliness of the product packaging and assign an eco-friendliness score out of 5, considering factors such as the use of recycled materials, recyclability, biodegradability, and overall environmental impact.
+
+4. *Output the Results:*
+   - Generate a structured list of the identified products with the following details:
+     - Original product name from the receipt
+     - Closest known real-life product name
+     - Category of the product
+     - Quantity
+     - Price per unit (if available)
+     - Total price
+     - Number of plastic packaging used
+     - Eco-friendliness score (out of 5)
+
+5. *Tabulate Metrics:*
+   - Provide a summary of the total number of items with plastic packaging.
+   - Calculate and present the average eco-friendliness score for all identified products.
+
+### Example Output:
+#### Receipt Details:
+- *Original Product Name:* Organic Bananas
+  - *Matched Product Name:* Chiquita Organic Bananas
+  - *Category:* Produce
+  - *Quantity:* 1 bunch
+  - *Price per Unit:* $0.59
+  - *Total Price:* $1.77
+  - *Plastic Packaging Count:* 0
+  - *Eco-friendliness Score:* 5/5
+
+- *Original Product Name:* 2L Diet Soda
+  - *Matched Product Name:* Coca-Cola Diet Soda 2L
+  - *Category:* Beverages
+  - *Quantity:* 1 bottle
+  - *Price per Unit:* $1.99
+  - *Total Price:* $1.99
+  - *Plastic Packaging Count:* 1
+  - *Eco-friendliness Score:* 2/5
+
+- *Original Product Name:* Unknown Item
+  - *Matched Product Name:* N/A
+  - *Category:* N/A
+  - *Quantity:* N/A
+  - *Price per Unit:* N/A
+  - *Total Price:* N/A
+  - *Plastic Packaging Count:* N/A
+  - *Eco-friendliness Score:* N/A
+  - *Suggestions:* Provide suggestions if possible
+
+#### Summary Metrics:
+- *Total Items with Plastic Packaging:* 1
+- *Average Eco-friendliness Score:* 3.5/5
+
+---
+
+Ensure that the information is accurate and clearly presented. Your goal is to assist users in understanding their receipts, linking the purchased items to known products, and providing insights into the environmental impact of their purchases.
+                        """
+                    }
+
+                ]
+            }
+        ],
+        "max_tokens": 300
+        }
+
+        response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+
+        return jsonify(response.json())
