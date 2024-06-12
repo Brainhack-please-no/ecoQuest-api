@@ -273,9 +273,15 @@ class UserData(Resource):
 
 
 @rest_api.route('/api/leaderboard')
-class leaderboard(Resource):
+class Leaderboard(Resource):
     @token_required
     def get(self):
         user = Users.query.order_by(Users.points.desc()).all()
         leaderboard = [{"name": user.name, "points": user.points, "xp": user.xp, "level": user.level, 'family_size': user.family_size}]
         return jsonify(leaderboard)
+
+@rest_api.route('/api/quests_and_tasks')
+class Quests_Tasks(Resource):
+    @token_required
+    def get(self):
+        return

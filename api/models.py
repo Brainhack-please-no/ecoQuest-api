@@ -90,3 +90,41 @@ class JWTTokenBlocklist(db.Model):
     def save(self):
         db.session.add(self)
         db.session.commit()
+
+class Quests(db.Model):     # Idk if this works
+    id = db.Column(db.Integer(), primary_key=True)
+    name = db.Column(db.String(), nullable=False, unique=True)
+    description = db.Column(db.String(), nullable=False)
+    status = db.Column(db.String(), nullable=False)  
+
+def insert_quests():        # I also dk if this works sorry boss
+    json_data = [
+    {
+        "id": 1,
+        "name": "Plastic Free Week",
+        "description": "insert desc"
+    },
+    {
+        "id": 2,
+        "name": "Zero Waste Warrior",
+        "description": "descy :3"
+    },
+    {
+        "id": 3,
+        "name": "Conscious Consumer",
+        "description": "d"
+    }
+]
+    for quest in json_data:
+        new_quest = Quests(
+            id=quest['id'],
+            name=quest['name'],
+            description=quest['description'],
+        )
+        db.session.add(new_quest)
+    db.session.commit() 
+insert_quests()
+
+class UserQuests(db.Model):
+    id = db.Column(db.Integer(), primary_key=True)
+    userid = db.Column(db.Integer(), )
