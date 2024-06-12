@@ -250,7 +250,7 @@ class UserData(Resource):
         user = Users.query.get(user_id)
         if user is None:
             return {"error": "User not found"}, 404
-        return {"username": user.username, "points": user.points, "xp": user.xp, "level": user.level, "family_size": user.family_size}, 200
+        return {"id": user.id, "username": user.username, "points": user.points, "xp": user.xp, "level": user.level, "family_size": user.family_size}, 200
 
     @token_required
     def post(self, user_id):
@@ -259,6 +259,7 @@ class UserData(Resource):
             return {"error": "User not found"}, 404
 
         data = request.get_json()
+        user.id = data.get('id', user.id)
         user.username = data.get('username', user.username)
         user.points = data.get('points', user.points)
         user.xp = data.get('xp', user.xp)
@@ -266,7 +267,7 @@ class UserData(Resource):
         user.family_size = data.get('family_size', user.family_size)
         user.save()
 
-        return {"name": user.name, "points": user.points, "xp": user.xp, "level": user.level, "family_size": user.family_size}, 200
+        return {"id": user.id, "name": user.name, "points": user.points, "xp": user.xp, "level": user.level, "family_size": user.family_size}, 200
 
 @rest_api.route('/api/users/')
 
@@ -276,7 +277,7 @@ class Leaderboard(Resource):
     @token_required
     def get(self, user_id):
         users = Users.query.all()
-        leaderboard = [{"username": user.username, "points": user.points, "xp": user.xp, "level": user.level, 'family_size': user.family_size} for user in users]
+        leaderboard = [{"id": user.id, "username": user.username, "points": user.points, "xp": user.xp, "level": user.level, 'family_size': user.family_size} for user in users]
         leaderboard.sort(key=lambda user: -user["points"])
         return jsonify(leaderboard)
 
