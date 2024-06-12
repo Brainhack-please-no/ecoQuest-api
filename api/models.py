@@ -23,7 +23,7 @@ class Users(db.Model):
     password = db.Column(db.Text())
     jwt_auth_active = db.Column(db.Boolean())
     date_joined = db.Column(db.DateTime(), default=datetime.utcnow)
-
+    # metrics = db.Column(db.JSON, default=dict)
     def __repr__(self):
         return f"User {self.username}"
 
@@ -69,7 +69,6 @@ class Users(db.Model):
         cls_dict['xp'] = self.xp  # new field
         cls_dict['level'] = self.level  # new field
         cls_dict['family_size'] = self.family_size  # new field
-
         return cls_dict
 
     def toJSON(self):
