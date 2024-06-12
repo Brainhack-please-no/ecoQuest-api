@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 
 from functools import wraps
 
-from flask import request
+from flask import request, jsonify
 from flask_restx import Api, Resource, fields
 
 import jwt
@@ -244,12 +244,14 @@ class GitHubLogin(Resource):
 
 @rest_api.route('/api/users/data/<int:user_id>')
 class UserData(Resource):
+    @token_required
     def get(self, user_id):
         user = Users.query.get(user_id)
         if user is None:
             return {"error": "User not found"}, 404
         return {"name": user.name, "points": user.points, "xp": user.xp, "level": user.level, "family_size": user.family_size}, 200
 
+    @token_required
     def post(self, user_id):
         user = Users.query.get(user_id)
         if user is None:
@@ -264,3 +266,16 @@ class UserData(Resource):
         user.save()
 
         return {"name": user.name, "points": user.points, "xp": user.xp, "level": user.level, "family_size": user.family_size}, 200
+
+
+#quests and tasks
+# @rest_api.route('/api/users/')
+
+
+@rest_api.route('/api/leaderboard')
+class leaderboard(Resource):
+    @token_required
+    def get(self):
+        user = Users.query.order_by(Users.points.desc()).all()
+        leaderboard = [{"name": user.name, "points": user.points, "xp": user.xp, "level": user.level, 'family_size': user.family_size}]
+        return jsonify(leaderboard)
