@@ -10,6 +10,10 @@ from functools import wraps
 from flask import request, jsonify
 from flask_restx import Api, Resource, fields
 
+from werkzeug.utils import secure_filename
+
+import requests
+import base64
 import jwt
 
 from .models import db, Users, JWTTokenBlocklist
@@ -271,3 +275,29 @@ class Leaderboard(Resource):
         users = Users.query.all()
         leaderboard = [{"username": user.username, "points": user.points, "xp": user.xp, "level": user.level, 'family_size': user.family_size} for user in users]
         return jsonify(leaderboard)
+
+
+@rest_api.route('/api/scanner')
+class Scanner(Resource):
+    @token_required
+    def post(self, user_id):
+        if 'photo' not in request.files:
+            return jsonify({"error": "No photo provided"}), 400
+
+        file = request.files['photo']
+        if file.filename == '':
+            return jsonify({"error": "No selected file"}), 400
+
+        # Convert the image file to a base64 string
+        image_string = base64.b64encode(file.read()).decode('utf-8')
+
+        # Send the image to the remote server
+        response = requests.post('https://your-remote-server.com/api/scan', json={'image': image_string})
+
+        # Check the response
+        if response.status_code != 200:
+            return jsonify({"success": False, "error": "Failed to scan image"}), 500
+
+        # Return the scanned information
+        scanned_info = response.json().get('scanned_info')
+        return jsonify({"success": True, "scanned_info": scanned_info}), 200
