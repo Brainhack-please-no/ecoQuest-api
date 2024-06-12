@@ -252,14 +252,15 @@ class GitHubLogin(Resource):
                 }}, 200
 
 
-@rest_api.route('/api/users/data/<int:user_id>')
+@rest_api.route('/api/users/data/<string:id>')
 class UserData(Resource):
+
     @token_required
-    def get(self, user_id):
-        user = Users.query.get(user_id)
+    def get(current_user, self, id):
+        user = Users.query.get(id)
         if user is None:
             return {"error": "User not found"}, 404
-        return {"id": user.id, "username": user.username, "points": user.points, "xp": user.xp, "level": user.level, "family_size": user.family_size}, 200
+        return user.toJSON(), 200
 
     @token_required
     def post(self, user_id):
@@ -278,13 +279,15 @@ class UserData(Resource):
 
         return {"id": user.id, "name": user.name, "points": user.points, "xp": user.xp, "level": user.level, "family_size": user.family_size}, 200
 
+
 @rest_api.route('/api/users/')
 @rest_api.route('/api/leaderboard')
 class Leaderboard(Resource):
     @token_required
     def get(self, user_id):
         users = Users.query.all()
-        leaderboard = [{"id": user.id, "username": user.username, "points": user.points, "xp": user.xp, "level": user.level, 'family_size': user.family_size} for user in users]
+        leaderboard = [{"id": user.id, "username": user.username, "points": user.points,
+                        "xp": user.xp, "level": user.level, 'family_size': user.family_size} for user in users]
         leaderboard.sort(key=lambda user: -user["points"])
         return jsonify(leaderboard)
 
@@ -430,12 +433,14 @@ If the receipt is not parsable, return
         # except json.JSONDecodeError:
         #     return jsonify({"error": "Invalid JSON response from OpenAI API"})
 
+
 @rest_api.route("/api/datacheck")
 class Check(Resource):
     @token_required
     def post(user, self):
-        #dictionary for metrics and their quest_ids
-        quest_id = {"plastic_bags_used": 1, "sustainable_clothing": 2, "plastic_free_packaging": 3}
+        # dictionary for metrics and their quest_ids
+        quest_id = {"plastic_bags_used": 1,
+                    "sustainable_clothing": 2, "plastic_free_packaging": 3}
         # data received. Gives the new amounts for each metric. Adds it to a list
         req_data = request.get_json()
         new_amounts = [req_data.get(new_items) for new_items in quest_id]
@@ -448,20 +453,21 @@ class Check(Resource):
             for quest in quest_id:
                 user_metrics[quest] = 0
         else:
-            #else, load the metrics from the user and turn it into json format
+            # else, load the metrics from the user and turn it into json format
             user_metrics = json.loads(user.metrics)
         # keeps the old amounts of each metric from the user
         old_amounts = [user_metrics[quest] for quest in quest_id]
-        #adds the new amounts to the user's metrics
+        # adds the new amounts to the user's metrics
         for count, quest_metric in enumerate(quest_id):
             user_metrics[quest_metric] += new_amounts[count]
-        #writes the changes and then changes it to string format to store (impt to be in string)
+        # writes the changes and then changes it to string format to store (impt to be in string)
         user.metrics = json.dumps(user_metrics)
         # Commit the changes to the database
         db.session.commit()
-        
-        #tuple of required amounts for each tuple and whether they need to get more or less than that amount
-        required_amounts_and_more_less = [(Quests.query.get(ids).required_amount, Quests.query.get(ids).more_or_less) for ids in quest_id.values()]
+
+        # tuple of required amounts for each tuple and whether they need to get more or less than that amount
+        required_amounts_and_more_less = [(Quests.query.get(
+            ids).required_amount, Quests.query.get(ids).more_or_less) for ids in quest_id.values()]
         # goes over each metric
         for count, tuple_info in enumerate(required_amounts_and_more_less):
             # if you need more than the number
@@ -477,7 +483,7 @@ class Check(Resource):
                 if old_amounts[count] <= tuple_info[0] and new_amounts[count] > tuple_info[0]:
                     user.points += quests[count].points
             db.session.commit()
-            
+
         return {"success": True, "message": "User metrics updated successfully"}, 200
 
 
@@ -486,5 +492,6 @@ class Quest_all(Resource):
     @token_required
     def get(self, user_id):
         quests = Quests.query.all()
-        quest_list = [{"quest_id": quest.quest_id, "name": quest.name, "metric": quest.metric, "required_amount": quest.required_amount, "more_or_less": quest.more_or_less, "points": quest.points} for quest in quests]
+        quest_list = [{"quest_id": quest.quest_id, "name": quest.name, "metric": quest.metric,
+                       "required_amount": quest.required_amount, "more_or_less": quest.more_or_less, "points": quest.points} for quest in quests]
         return jsonify(quest_list)
