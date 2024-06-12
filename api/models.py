@@ -23,7 +23,7 @@ class Users(db.Model):
     password = db.Column(db.Text())
     jwt_auth_active = db.Column(db.Boolean())
     date_joined = db.Column(db.DateTime(), default=datetime.utcnow)
-    # metrics = db.Column(db.JSON, default=dict)
+    metrics = db.Column(db.String())
     def __repr__(self):
         return f"User {self.username}"
 
@@ -69,6 +69,7 @@ class Users(db.Model):
         cls_dict['xp'] = self.xp  # new field
         cls_dict['level'] = self.level  # new field
         cls_dict['family_size'] = self.family_size  # new field
+        cls_dict['metrics'] = self.metrics
         return cls_dict
 
     def toJSON(self):
@@ -85,30 +86,6 @@ class JWTTokenBlocklist(db.Model):
     def save(self):
         db.session.add(self)
         db.session.commit()
-
-class Quests(db.Model):     # Idk if this works
-    id = db.Column(db.Integer(), primary_key=True)
-    name = db.Column(db.String(), nullable=False, unique=True)
-    description = db.Column(db.String(20), nullable=False)
-    status = db.Column(db.String(15), nullable=False)  
-
-class UserQuests(db.Model):
-    id = db.Column(db.Integer(), primary_key=True)
-    userid = db.Column(db.Integer(), nullable=False)
-    status = db.Column(db.String(12), nullable=False)
-    expiry = db.Column(db.String(10), nullable=False)
-    completed = db.Column(db.String(10), nullable=True)
-
-    def update_status(self, status):
-        self.status = status
-
-    def update_completed(self, completed):
-        self.completed = completed
+        
+class Quests(db.Model):
     
-class Tasks(db.Model):
-    id = db.Column(db.Integer(), primary_key=True)
-    questId = db.Column(db.Integer(), primary_key=True)
-    name = db.Column(db.String(50), nullable=False)
-    metric = db.Column(db.String(50), nullable=False)
-    requiredAmount = db.Column(db.Integer(), primary_key=False)
-    moreOrLess = db.Column(db.String(4), nullable=True)

@@ -430,4 +430,31 @@ If the receipt is not parsable, return
         # except json.JSONDecodeError:
         #     return jsonify({"error": "Invalid JSON response from OpenAI API"})
 
-# @rest_api("/api/")
+@rest_api.route("/api/datacheck")
+class Check(Resource):
+    @token_required
+    def post(user, self):
+        req_data = request.get_json()
+        plastic_bags_used = req_data.get("plastic_bags_used")
+        plastic_free_packaging = req_data.get("plastic_free_packaging")
+        sustainable_clothing = req_data.get("sustainable_clothing")
+        # Fetch the user from the database
+        
+        quests = 
+        if not user.metrics:
+            metrics = {
+        "plastic_bags_used": 0,
+        "sustainable_clothing": 0,
+        "plastic_free_packaging": 0
+            }
+        else:
+            metrics = json.loads(user.metrics)
+        # Update the metrics fields
+        metrics["plastic_bags_used"] += plastic_bags_used
+        metrics["sustainable_clothing"] += sustainable_clothing
+        metrics["plastic_free_packaging"] += plastic_free_packaging
+        user.metrics = json.dumps(metrics)
+        # Commit the changes to the database
+        db.session.commit()
+
+        return {"success": True, "message": "User metrics updated successfully"}, 200
