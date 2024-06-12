@@ -434,32 +434,50 @@ If the receipt is not parsable, return
 class Check(Resource):
     @token_required
     def post(user, self):
+        #dictionary for metrics and their quest_ids
+        quest_id = {"plastic_bags_used": 1, "sustainable_clothing": 2, "plastic_free_packaging": 3}
+        # data received. Gives the new amounts for each metric. Adds it to a list
         req_data = request.get_json()
-        plastic_bags_used = req_data.get("plastic_bags_used")
-        plastic_free_packaging = req_data.get("plastic_free_packaging")
-        sustainable_clothing = req_data.get("sustainable_clothing")
-        quest_id = {"plastic_bags_used_id": 1, "sustainable_clothing_id": 2, "plastic_free_packaging": 3}
-        # Fetch the quests from the database
+        new_amounts = [req_data.get(new_items) for new_items in quest_id]
+        # new_amounts = [8,8,8]
+        # gets all data from the Quests db
         quests = Quests.query.all()
-        metric = json.load(quests.metric)
+        # if user metrics is empty, add the metrics for the quests
         if not user.metrics:
+            user_metrics = {}
             for quest in quest_id:
-                metrics = {}
-                metrics[quest]: 0
+                user_metrics[quest] = 0
         else:
+            #else, load the metrics from the user and turn it into json format
             user_metrics = json.loads(user.metrics)
-        # Update the metrics fields
-        old_plastic_bags_used = user_metrics["plastic_bags_used"]
-        old_sustainable_clothing = user_metrics["sustainable_clothing"]
-        old_plastic_free_packaging = user_metrics["plastic_free_packaging"]
-        user_metrics["plastic_bags_used"] += plastic_bags_used
-        user_metrics["sustainable_clothing"] += sustainable_clothing
-        user_metrics["plastic_free_packaging"] += plastic_free_packaging
+        # keeps the old amounts of each metric from the user
+        old_amounts = [user_metrics[quest] for quest in quest_id]
+        #adds the new amounts to the user's metrics
+        for count, quest_metric in enumerate(quest_id):
+            user_metrics[quest_metric] += new_amounts[count]
+        #writes the changes and then changes it to string format to store (impt to be in string)
         user.metrics = json.dumps(user_metrics)
         # Commit the changes to the database
         db.session.commit()
-        required_amounts = [Quests.query.get(_).required_amounts for _ in quest_id.values()]
-
+        
+        #tuple of required amounts for each tuple and whether they need to get more or less than that amount
+        required_amounts_and_more_less = [(Quests.query.get(ids).required_amount, Quests.query.get(ids).more_or_less) for ids in quest_id.values()]
+        # goes over each metric
+        for count, tuple_info in enumerate(required_amounts_and_more_less):
+            # if you need more than the number
+            if tuple_info[1] == 'more':
+                # if the old amount is less than the required and the new amount is more or equal to the required
+                if old_amounts[count] < tuple_info[0] and new_amounts[count] >= tuple_info[0]:
+                    # signals completion of task. Add points and xp
+                    user.points += quests[count].points
+                    user.xp += quests[count].points * 0.5
+            # if you need to get less than the required amount,
+            elif tuple_info[1] == 'less':
+                # if you go past the amount, deduct points from the user
+                if old_amounts[count] <= tuple_info[0] and new_amounts[count] > tuple_info[0]:
+                    user.points += quests[count].points
+            db.session.commit()
+            
         return {"success": True, "message": "User metrics updated successfully"}, 200
 
 
@@ -468,6 +486,5 @@ class Quest_all(Resource):
     @token_required
     def get(self, user_id):
         quests = Quests.query.all()
-        print(quests)
         quest_list = [{"quest_id": quest.quest_id, "name": quest.name, "metric": quest.metric, "required_amount": quest.required_amount, "more_or_less": quest.more_or_less, "points": quest.points} for quest in quests]
         return jsonify(quest_list)
