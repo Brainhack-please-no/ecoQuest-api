@@ -88,4 +88,9 @@ class JWTTokenBlocklist(db.Model):
         db.session.commit()
         
 class Quests(db.Model):
-    
+    quest_id = db.Column(db.Integer(), primary_key=True)
+    name = db.Column(db.Text(), nullable=False)
+    metric = db.Column(db.Text(), nullable=False)
+    required_amount = db.Column(db.Integer(), default=0)
+    more_or_less = db.Column(db.Text(), nullable=False)
+    points = db.Column(db.Integer(), default = 0)

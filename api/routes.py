@@ -20,7 +20,7 @@ import base64
 import jwt
 import os
 
-from .models import db, Users, JWTTokenBlocklist
+from .models import db, Users, JWTTokenBlocklist, Quests
 from .config import BaseConfig
 import requests
 
@@ -438,23 +438,37 @@ class Check(Resource):
         plastic_bags_used = req_data.get("plastic_bags_used")
         plastic_free_packaging = req_data.get("plastic_free_packaging")
         sustainable_clothing = req_data.get("sustainable_clothing")
-        # Fetch the user from the database
-        
-        quests = 
+        quest_id = {"plastic_bags_used_id": 1, "sustainable_clothing_id": 2, "plastic_free_packaging": 3}
+        # Fetch the quests from the database
+        quests = Quests.query.all()
+        metric = json.load(quests.metric)
         if not user.metrics:
-            metrics = {
-        "plastic_bags_used": 0,
-        "sustainable_clothing": 0,
-        "plastic_free_packaging": 0
-            }
+            for quest in quest_id:
+                metrics = {
+            quest: 0,
+                }
         else:
-            metrics = json.loads(user.metrics)
+            user_metrics = json.loads(user.metrics)
         # Update the metrics fields
-        metrics["plastic_bags_used"] += plastic_bags_used
-        metrics["sustainable_clothing"] += sustainable_clothing
-        metrics["plastic_free_packaging"] += plastic_free_packaging
-        user.metrics = json.dumps(metrics)
+        old_plastic_bags_used = user_metrics["plastic_bags_used"]
+        old_sustainable_clothing = user_metrics["sustainable_clothing"]
+        old_plastic_free_packaging = user_metrics["plastic_free_packaging"]
+        user_metrics["plastic_bags_used"] += plastic_bags_used
+        user_metrics["sustainable_clothing"] += sustainable_clothing
+        user_metrics["plastic_free_packaging"] += plastic_free_packaging
+        user.metrics = json.dumps(user_metrics)
         # Commit the changes to the database
         db.session.commit()
+        required_amounts = [Quests.query.get(_).required_amounts for _ in quest_id.values()]
 
         return {"success": True, "message": "User metrics updated successfully"}, 200
+
+
+@rest_api.route('/api/quests')
+class Quest_all(Resource):
+    @token_required
+    def get(self, user_id):
+        quests = Quests.query.all()
+        print(quests)
+        quest_list = [{"quest_id": quest.quest_id, "name": quest.name, "metric": quest.metric, "required_amount": quest.required_amount, "more_or_less": quest.more_or_less, "points": quest.points} for quest in quests]
+        return jsonify(quest_list)
