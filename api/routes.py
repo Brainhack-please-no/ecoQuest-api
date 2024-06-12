@@ -6,6 +6,7 @@ Copyright (c) 2019 - present AppSeed.us
 from datetime import datetime, timezone, timedelta
 
 from functools import wraps
+import json
 
 from dotenv import load_dotenv
 
@@ -40,13 +41,14 @@ login_model = rest_api.model('LoginModel', {"username": fields.String(required=T
 
 user_edit_model = rest_api.model('UserEditModel', {"userID": fields.String(required=True, min_length=1, max_length=32),
                                                    "username": fields.String(required=True, min_length=2, max_length=32),
-                                            
+
                                                    })
 
 
 """
    Helper function for JWT token required
 """
+
 
 def token_required(f):
 
@@ -62,14 +64,16 @@ def token_required(f):
             return {"success": False, "msg": "Valid JWT token is missing"}, 400
 
         try:
-            data = jwt.decode(token, BaseConfig.SECRET_KEY, algorithms=["HS256"])
+            data = jwt.decode(token, BaseConfig.SECRET_KEY,
+                              algorithms=["HS256"])
             current_user = Users.get_by_username(data["username"])
 
             if not current_user:
                 return {"success": False,
                         "msg": "Sorry. Wrong auth token. This user does not exist."}, 400
 
-            token_expired = db.session.query(JWTTokenBlocklist.id).filter_by(jwt_token=token).scalar()
+            token_expired = db.session.query(
+                JWTTokenBlocklist.id).filter_by(jwt_token=token).scalar()
 
             if token_expired is not None:
                 return {"success": False, "msg": "Token revoked."}, 400
@@ -144,7 +148,8 @@ class Login(Resource):
                     "msg": "Wrong credentials."}, 400
 
         # create access token uwing JWT
-        token = jwt.encode({'username': _username, 'exp': datetime.utcnow() + timedelta(minutes=30)}, BaseConfig.SECRET_KEY)
+        token = jwt.encode({'username': _username, 'exp': datetime.utcnow(
+        ) + timedelta(minutes=30)}, BaseConfig.SECRET_KEY)
 
         user_exists.set_jwt_auth_active(True)
         user_exists.save()
@@ -187,7 +192,8 @@ class LogoutUser(Resource):
 
         _jwt_token = request.headers["authorization"]
 
-        jwt_block = JWTTokenBlocklist(jwt_token=_jwt_token, created_at=datetime.now(timezone.utc))
+        jwt_block = JWTTokenBlocklist(
+            jwt_token=_jwt_token, created_at=datetime.now(timezone.utc))
         jwt_block.save()
 
         self.set_jwt_auth_active(False)
@@ -204,7 +210,8 @@ class GitHubLogin(Resource):
         client_secret = BaseConfig.GITHUB_CLIENT_SECRET
         root_url = 'https://github.com/login/oauth/access_token'
 
-        params = { 'client_id': client_id, 'client_secret': client_secret, 'code': code }
+        params = {'client_id': client_id,
+                  'client_secret': client_secret, 'code': code}
 
         data = requests.post(root_url, params=params, headers={
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -216,21 +223,23 @@ class GitHubLogin(Resource):
         user_data = requests.get('https://api.github.com/user', headers={
             "Authorization": "Bearer " + access_token
         }).json()
-        
+
         user_exists = Users.get_by_username(user_data['login'])
         if user_exists:
             user = user_exists
         else:
             try:
-                user = Users(username=user_data['login'], email=user_data['email'])
+                user = Users(
+                    username=user_data['login'], email=user_data['email'])
                 user.save()
             except:
                 user = Users(username=user_data['login'])
                 user.save()
-        
+
         user_json = user.toJSON()
 
-        token = jwt.encode({"username": user_json['username'], 'exp': datetime.utcnow() + timedelta(minutes=30)}, BaseConfig.SECRET_KEY)
+        token = jwt.encode({"username": user_json['username'], 'exp': datetime.utcnow(
+        ) + timedelta(minutes=30)}, BaseConfig.SECRET_KEY)
         user.set_jwt_auth_active(True)
         user.save()
 
@@ -263,15 +272,13 @@ class UserData(Resource):
         user.username = data.get('username', user.username)
         user.points = data.get('points', user.points)
         user.xp = data.get('xp', user.xp)
-        user.level = data.get('level' , user.level)
+        user.level = data.get('level', user.level)
         user.family_size = data.get('family_size', user.family_size)
         user.save()
 
         return {"id": user.id, "name": user.name, "points": user.points, "xp": user.xp, "level": user.level, "family_size": user.family_size}, 200
 
 @rest_api.route('/api/users/')
-
-
 @rest_api.route('/api/leaderboard')
 class Leaderboard(Resource):
     @token_required
@@ -287,152 +294,41 @@ class Scanner(Resource):
     @token_required
     def post(self, user_id):
         if 'photo' not in request.files:
-            return jsonify({"error": "No photo provided"}), 400
+            return jsonify({"error": "No photo provided"})
 
         file = request.files['photo']
         if file.filename == '':
-            return jsonify({"error": "No selected file"}), 400
+            return jsonify({"error": "No selected file"})
 
         # Convert the image file to a base64 string
         image_string_b64 = base64.b64encode(file.read()).decode('utf-8')
 
         headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {os.getenv('API_KEY')}"
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {os.getenv('API_KEY')}"
         }
 
         payload = {
-        "model": "gpt-4o",
-        "messages": [
-            {
-            "role": "user",
-            "content": [
+            "model": "gpt-4o",
+            "messages": [
                 {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/jpeg;base64,{image_string_b64}"
-                }
-                }
-            ]
-            },
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "text",
-                        #"text": "You will be presented with an image containing a receipt. Please parse the receipt and respond only with the format below: [{receipt_item: 'raw_receipt_name', value: 'no.of.items', name: 'name'}]. Based on the receipt item, find the closest corresponding actual item name as the name key, and the raw name as receipt_item. If the image does not contain a receipt, return an empty array. Do not respond to anything else.",
-#                         "text": """
-
-# *Objective:*
-
-# To accurately scan a receipt, identify the products listed, and match each product to the closest real-life product known in the database. This includes extracting product names, quantities, and prices, and providing a detailed output of the identified real-life products.
-
-# *Instructions:*
-
-# 1. *Receipt Scanning:*
-#    - Start by scanning the entire receipt.
-#    - Extract all text data from the receipt including product names, quantities, prices, and any additional information like store name and date.
-
-# 2. *Product Identification:*
-#    - Identify each product listed on the receipt.
-#    - Use OCR (Optical Character Recognition) to ensure accurate text extraction.
-#    - Cross-reference the extracted product names with a known product database to find the closest matching real-life product. 
-
-# 3. *Data Linking:*
-#    - For each identified product, provide the following details:
-#      - *Extracted Product Name:* The name as it appears on the receipt.
-#      - *Identified Real-Life Product Name:* The closest matching product name from the database.
-#      - *Quantity:* The quantity of the product purchased.
-#      - *Price:* The price listed on the receipt.
-#      - *Product Details:* Additional details of the matched real-life product (e.g., brand, description, category).
-
-# 4. *Error Handling:*
-#    - If a product cannot be matched with high confidence, flag it for review.
-#    - Provide suggestions for possible matches with confidence scores.
-
-# 5. *Output Format:*
-#    - Present the output in a structured format (e.g., JSON or tabular) including all relevant fields:
-#      json
-#      {
-#        "store_name": "Store Name",
-#        "date": "YYYY-MM-DD",
-#        "products": [
-#          {
-#            "extracted_product_name": "Extracted Name",
-#            "identified_real_life_product_name": "Matched Name",
-#            "quantity": 1,
-#            "price": 9.99,
-#            "product_details": {
-#              "brand": "Brand Name",
-#              "description": "Product Description",
-#              "category": "Product Category"
-#            }
-#          },
-#          ...
-#        ]
-#      }
-     
-
-# 6. *Example:*
-
-#    *Input:*
-   
-#    Walmart
-#    2023-06-12
-#    1x Apple - $0.99
-#    2x Bread - $3.49
-#    1x Milk - $2.99
-   
-
-#    *Output:*
-#    json
-#    {
-#      "store_name": "Walmart",
-#      "date": "2023-06-12",
-#      "products": [
-#        {
-#          "extracted_product_name": "Apple",
-#          "identified_real_life_product_name": "Granny Smith Apple",
-#          "quantity": 1,
-#          "price": 0.99,
-#          "product_details": {
-#            "brand": "Generic",
-#            "description": "Fresh Granny Smith Apple",
-#            "category": "Fruit"
-#          }
-#        },
-#        {
-#          "extracted_product_name": "Bread",
-#          "identified_real_life_product_name": "Whole Wheat Bread",
-#          "quantity": 2,
-#          "price": 3.49,
-#          "product_details": {
-#            "brand": "Wonder",
-#            "description": "Whole Wheat Sandwich Bread",
-#            "category": "Bakery"
-#          }
-#        },
-#        {
-#          "extracted_product_name": "Milk",
-#          "identified_real_life_product_name": "2% Milk",
-#          "quantity": 1,
-#          "price": 2.99,
-#          "product_details": {
-#            "brand": "Great Value",
-#            "description": "2% Reduced Fat Milk",
-#            "category": "Dairy"
-#          }
-#        }
-#      ]
-#    }
-   
-
-# *Guidelines:*
-
-# - Ensure high accuracy in text extraction and product matching.
-# - Maintain consistency in the output format.
-# - Prioritize user-friendly and readable outputs."""
-                        "text": """
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_string_b64}"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "role": "system",
+                    "content": [
+                        {
+                            "type": "text",
+                            # "text": "You will be presented with an image containing a receipt. Please parse the receipt and respond only with the format below: [{receipt_item: 'raw_receipt_name', value: 'no.of.items', name: 'name'}]. Based on the receipt item, find the closest corresponding actual item name as the name key, and the raw name as receipt_item. If the image does not contain a receipt, return an empty array. Do not respond to anything else.",
+                            "text": """
 You are an AI trained to process and analyze receipts. Your task is to:
 
 1. *Scan the Receipt:*
@@ -456,58 +352,80 @@ You are an AI trained to process and analyze receipts. Your task is to:
      - Price per unit (if available)
      - Total price
      - Number of plastic packaging used
-     - Eco-friendliness score (out of 5)
+     - Eco-friendliness score (0 - 1)
 
 5. *Tabulate Metrics:*
-   - Provide a summary of the total number of items with plastic packaging.
-   - Calculate and present the average eco-friendliness score for all identified products.
+   - Provide a summary of the following metrics:
+     - No. of items with plastic-free packaging
+     - No. of plastic bags used
+     - No. of clothing items bought from sustainable sources
 
 ### Example Output:
-#### Receipt Details:
-- *Original Product Name:* Organic Bananas
-  - *Matched Product Name:* Chiquita Organic Bananas
-  - *Category:* Produce
-  - *Quantity:* 1 bunch
-  - *Price per Unit:* $0.59
-  - *Total Price:* $1.77
-  - *Plastic Packaging Count:* 0
-  - *Eco-friendliness Score:* 5/5
-
-- *Original Product Name:* 2L Diet Soda
-  - *Matched Product Name:* Coca-Cola Diet Soda 2L
-  - *Category:* Beverages
-  - *Quantity:* 1 bottle
-  - *Price per Unit:* $1.99
-  - *Total Price:* $1.99
-  - *Plastic Packaging Count:* 1
-  - *Eco-friendliness Score:* 2/5
-
-- *Original Product Name:* Unknown Item
-  - *Matched Product Name:* N/A
-  - *Category:* N/A
-  - *Quantity:* N/A
-  - *Price per Unit:* N/A
-  - *Total Price:* N/A
-  - *Plastic Packaging Count:* N/A
-  - *Eco-friendliness Score:* N/A
-  - *Suggestions:* Provide suggestions if possible
-
-#### Summary Metrics:
-- *Total Items with Plastic Packaging:* 1
-- *Average Eco-friendliness Score:* 3.5/5
-
+{
+details: [
+    {
+        'original_name': 'Organic Bananas',
+        'matched_name': 'Chiquita Organic Bananas',
+        'category': 'Produce',
+        'quantity': '1 bunch',
+        'price_per_unit': '$0.59',
+        'total_price': '$1.77',
+        'plastic_packaging_count': 0,
+        'eco-friendliness_score': 1
+    },
+    {
+        'original_name': '2L Diet Soda',
+        'matched_name': 'Coca-Cola Diet Soda 2L',
+        'category': 'Beverages',
+        'quantity': '1 bottle',
+        'price_per_unit': '$1.99',
+        'total_price': '$1.99',
+        'plastic_packaging_count': 1,
+        'eco-friendliness_score': 0.5
+    },
+    {
+        'original_name': 'Unknown Item',
+        'matched_name': 'N/A',
+        'category': 'N/A',
+        'quantity': 'N/A',
+        'price_per_unit': 'N/A',
+        'total_price': 'N/A',
+        'plastic_packaging_count': 0,
+        'eco-friendliness_score': 0
+    }
+],
+metrics: {
+    'plastic_free_packaging': 1,
+    'plastic_bags_used': 1,
+    'sustainable_clothing': 0
+}
+}
 ---
 
-Ensure that the information is accurate and clearly presented. Your goal is to assist users in understanding their receipts, linking the purchased items to known products, and providing insights into the environmental impact of their purchases.
+Ensure that the information is accurate and strictly presented in json, without any white spaces or newlines.
+If the receipt is not parsable, return 
+{
+    'details': [],
+    'metrics': {}
+}
                         """
-                    }
+                        }
 
-                ]
-            }
-        ],
-        "max_tokens": 300
+                    ]
+                }
+            ],
+            "max_tokens": 4096
         }
 
-        response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
 
-        return jsonify(response.json())
+        json_data = response.json()
+        # print(json_data)
+        message = json_data['choices'][0]['message']['content']
+        print(message)
+        # try:
+        parsed_data = json.loads(message.strip())
+        return jsonify(parsed_data)
+        # except json.JSONDecodeError:
+        #     return jsonify({"error": "Invalid JSON response from OpenAI API"})
