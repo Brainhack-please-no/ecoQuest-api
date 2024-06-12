@@ -405,12 +405,7 @@ metrics: {
 }
 ---
 
-Ensure that the information is accurate and strictly presented in json, without any white spaces or newlines.
-If the receipt is not parsable, return 
-{
-    'details': [],
-    'metrics': {}
-}
+Ensure that the information is accurate and strictly presented in json if there is a receipt, without any white spaces or newlines. If there is no receipt, return 'None' as a string. Do not respond to anything else.
                         """
                         }
 
@@ -424,14 +419,17 @@ If the receipt is not parsable, return
             "https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
 
         json_data = response.json()
-        # print(json_data)
-        message = json_data['choices'][0]['message']['content']
-        print(message)
-        # try:
-        parsed_data = jsonify(json.loads(message.strip()))
+        print(json_data)
+        try:
+            message = json_data['choices'][0]['message']['content']
+            print(message)
+            parsed_data = jsonify(
+                {"data": json.loads(message.strip()), "success": True})
+        except:
+            parsed_data = jsonify(
+                {"error": "No receipt found", "success": False})
+
         return parsed_data
-        # except json.JSONDecodeError:
-        #     return jsonify({"error": "Invalid JSON response from OpenAI API"})
 
 
 @rest_api.route("/api/datacheck")
@@ -489,8 +487,7 @@ class Check(Resource):
 
 @rest_api.route('/api/quests')
 class Quest_all(Resource):
-    @token_required
-    def get(self, user_id):
+    def get(self):
         quests = Quests.query.all()
         quest_list = [{"quest_id": quest.quest_id, "name": quest.name, "metric": quest.metric,
                        "required_amount": quest.required_amount, "more_or_less": quest.more_or_less, "points": quest.points} for quest in quests]
