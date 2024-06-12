@@ -24,17 +24,16 @@ rest_api = Api(version="1.0", title="Users API")
 """
 
 signup_model = rest_api.model('SignUpModel', {"username": fields.String(required=True, min_length=2, max_length=32),
-                                              "email": fields.String(required=True, min_length=4, max_length=64),
                                               "password": fields.String(required=True, min_length=4, max_length=16)
                                               })
 
-login_model = rest_api.model('LoginModel', {"email": fields.String(required=True, min_length=4, max_length=64),
+login_model = rest_api.model('LoginModel', {"username": fields.String(required=True, min_length=2, max_length=32),
                                             "password": fields.String(required=True, min_length=4, max_length=16)
                                             })
 
 user_edit_model = rest_api.model('UserEditModel', {"userID": fields.String(required=True, min_length=1, max_length=32),
                                                    "username": fields.String(required=True, min_length=2, max_length=32),
-                                                   "email": fields.String(required=True, min_length=4, max_length=64)
+                                            
                                                    })
 
 
@@ -57,7 +56,7 @@ def token_required(f):
 
         try:
             data = jwt.decode(token, BaseConfig.SECRET_KEY, algorithms=["HS256"])
-            current_user = Users.get_by_email(data["email"])
+            current_user = Users.get_by_username(data["username"])
 
             if not current_user:
                 return {"success": False,
@@ -96,15 +95,14 @@ class Register(Resource):
         req_data = request.get_json()
 
         _username = req_data.get("username")
-        _email = req_data.get("email")
         _password = req_data.get("password")
 
-        user_exists = Users.get_by_email(_email)
+        user_exists = Users.get_by_username(_username)
         if user_exists:
             return {"success": False,
                     "msg": "Email already taken"}, 400
 
-        new_user = Users(username=_username, email=_email)
+        new_user = Users(username=_username)
 
         new_user.set_password(_password)
         new_user.save()
@@ -125,21 +123,21 @@ class Login(Resource):
 
         req_data = request.get_json()
 
-        _email = req_data.get("email")
+        _username = req_data.get("username")
         _password = req_data.get("password")
 
-        user_exists = Users.get_by_email(_email)
+        user_exists = Users.get_by_username(_username)
 
         if not user_exists:
             return {"success": False,
-                    "msg": "This email does not exist."}, 400
+                    "msg": "This username does not exist."}, 400
 
         if not user_exists.check_password(_password):
             return {"success": False,
                     "msg": "Wrong credentials."}, 400
 
         # create access token uwing JWT
-        token = jwt.encode({'email': _email, 'exp': datetime.utcnow() + timedelta(minutes=30)}, BaseConfig.SECRET_KEY)
+        token = jwt.encode({'username': _username, 'exp': datetime.utcnow() + timedelta(minutes=30)}, BaseConfig.SECRET_KEY)
 
         user_exists.set_jwt_auth_active(True)
         user_exists.save()
@@ -162,13 +160,9 @@ class EditUser(Resource):
         req_data = request.get_json()
 
         _new_username = req_data.get("username")
-        _new_email = req_data.get("email")
 
         if _new_username:
             self.update_username(_new_username)
-
-        if _new_email:
-            self.update_email(_new_email)
 
         self.save()
 
@@ -249,7 +243,7 @@ class UserData(Resource):
         user = Users.query.get(user_id)
         if user is None:
             return {"error": "User not found"}, 404
-        return {"name": user.name, "points": user.points, "xp": user.xp, "level": user.level, "family_size": user.family_size}, 200
+        return {"username": user.username, "points": user.points, "xp": user.xp, "level": user.level, "family_size": user.family_size}, 200
 
     @token_required
     def post(self, user_id):
@@ -258,7 +252,7 @@ class UserData(Resource):
             return {"error": "User not found"}, 404
 
         data = request.get_json()
-        user.name = data.get('name', user.name)
+        user.username = data.get('username', user.username)
         user.points = data.get('points', user.points)
         user.xp = data.get('xp', user.xp)
         user.level = data.get('level' , user.level)
@@ -267,15 +261,13 @@ class UserData(Resource):
 
         return {"name": user.name, "points": user.points, "xp": user.xp, "level": user.level, "family_size": user.family_size}, 200
 
-
-#quests and tasks
-# @rest_api.route('/api/users/')
+@rest_api.route('/api/users/')
 
 
 @rest_api.route('/api/leaderboard')
-class leaderboard(Resource):
+class Leaderboard(Resource):
     @token_required
-    def get(self):
-        user = Users.query.order_by(Users.points.desc()).all()
-        leaderboard = [{"name": user.name, "points": user.points, "xp": user.xp, "level": user.level, 'family_size': user.family_size}]
+    def get(self, user_id):
+        users = Users.query.all()
+        leaderboard = [{"username": user.username, "points": user.points, "xp": user.xp, "level": user.level, 'family_size': user.family_size} for user in users]
         return jsonify(leaderboard)

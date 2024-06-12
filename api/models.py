@@ -15,13 +15,11 @@ db = SQLAlchemy()
 
 class Users(db.Model):
     id = db.Column(db.Integer(), primary_key=True)
-    name = db.Column(db.String(64), nullable=False)  # new field
     points = db.Column(db.Integer(), default=0)  # new field
     xp = db.Column(db.Integer(), default=0)  # new field
     level = db.Column(db.Integer(), default=0)  # new field
     family_size = db.Column(db.Integer(), default=0)  # new field
     username = db.Column(db.String(32), nullable=False)
-    email = db.Column(db.String(64), nullable=True)
     password = db.Column(db.Text())
     jwt_auth_active = db.Column(db.Boolean())
     date_joined = db.Column(db.DateTime(), default=datetime.utcnow)
@@ -56,19 +54,17 @@ class Users(db.Model):
         return cls.query.get_or_404(id)
 
     @classmethod
-    def get_by_email(cls, email):
-        return cls.query.filter_by(email=email).first()
-    
-    @classmethod
     def get_by_username(cls, username):
         return cls.query.filter_by(username=username).first()
+    
+    @classmethod
+    def get_all(cls):
+        return cls.toDICT(cls.query.all())
 
     def toDICT(self):
         cls_dict = {}
         cls_dict['_id'] = self.id
         cls_dict['username'] = self.username
-        cls_dict['email'] = self.email
-        cls_dict['name'] = self.name  # new field
         cls_dict['points'] = self.points  # new field
         cls_dict['xp'] = self.xp  # new field
         cls_dict['level'] = self.level  # new field
