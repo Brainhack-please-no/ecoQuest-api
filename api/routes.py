@@ -444,9 +444,8 @@ class Check(Resource):
         metric = json.load(quests.metric)
         if not user.metrics:
             for quest in quest_id:
-                metrics = {
-            quest: 0,
-                }
+                metrics = {}
+                metrics[quest]: 0
         else:
             user_metrics = json.loads(user.metrics)
         # Update the metrics fields
