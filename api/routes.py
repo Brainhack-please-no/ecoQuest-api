@@ -425,7 +425,9 @@ If the receipt is not parsable, return
         message = json_data['choices'][0]['message']['content']
         print(message)
         # try:
-        parsed_data = json.loads(message.strip())
-        return jsonify(parsed_data)
+        parsed_data = jsonify(json.loads(message.strip()))
+        return parsed_data
         # except json.JSONDecodeError:
         #     return jsonify({"error": "Invalid JSON response from OpenAI API"})
+
+# @rest_api("/api/")

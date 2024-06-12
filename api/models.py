@@ -92,29 +92,6 @@ class Quests(db.Model):     # Idk if this works
     description = db.Column(db.String(20), nullable=False)
     status = db.Column(db.String(15), nullable=False)  
 
-def insert_quests():        # I also dk if this works sorry boss
-    json_data = [
-    {
-        "id": 1,
-        "name": "Plastic Free Week",
-        "description": "insert desc"
-    },
-    {
-        "id": 2,
-        "name": "Green Shopper",
-        "description": "descy :3"
-    }
-]
-    for quest in json_data:
-        new_quest = Quests(
-            id=quest['id'],
-            name=quest['name'],
-            description=quest['description'],
-        )
-        db.session.add(new_quest)
-    db.session.commit() 
-insert_quests()
-
 class UserQuests(db.Model):
     id = db.Column(db.Integer(), primary_key=True)
     userid = db.Column(db.Integer(), nullable=False)
@@ -135,49 +112,3 @@ class Tasks(db.Model):
     metric = db.Column(db.String(50), nullable=False)
     requiredAmount = db.Column(db.Integer(), primary_key=False)
     moreOrLess = db.Column(db.String(4), nullable=True)
-
-def insert_tasks():
-    json_data = [{
-        "id" : 1,
-        "questId" : 1,
-        "name" : "Purchase at least 1 product with no plastic packaging",
-        "metric" : "productsWithNoPlasticPackaging",
-        "moreOrLess" : "more",
-        "requiredAmount": 1
-    },
-    {
-        "id" : 2,
-        "questId" : 1,
-        "name" : "Use plastic bag less than 3 times when purchasing from supermarkets",
-        "metric" : "plasticBagsUsed",
-        "moreOrLess" : "less",
-        "requiredAmount": 3     
-    },
-    {
-        "id" : 1,
-        "questId" : 2,
-        "name" : "Purchase a new set of sustainable office supplies (eg. recycled paper, bamboo pens, recycled notebooks) for your workspace.",
-        "metric" : "sustainableOfficeSupplies",
-        "moreOrLess" : "more",
-        "requiredAmount": 3     
-    },
-    {
-        "id" : 2,
-        "questId" : 2,
-        "name" : "Stock up with at least 5 new plant based food items or meat alternatives from sustainable brands.",
-        "metric" : "plantBasedFood",
-        "moreOrLess" : "more",
-        "requiredAmount": 5     
-    },]
-    for task in json_data:
-        new_task = Tasks(
-            id = task['id'],
-            questId = task['questId'],
-            name = task['name'],
-            metric = task['metric'], 
-            moreOrLess = task['moreOrLess'],
-            requiredAmount = task['requiredAmount']
-        )
-        db.session.add(new_task)
-    db.session.commit()
-insert_tasks()          # no clue which file to insert into db but yeah
