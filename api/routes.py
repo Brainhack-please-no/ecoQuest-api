@@ -315,28 +315,17 @@ class Scanner(Resource):
             "model": "gpt-4o",
             "messages": [
                 {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{image_string_b64}"
-                            }
-                        }
-                    ]
-                },
-                {
                     "role": "system",
                     "content": [
                         {
                             "type": "text",
-                            # "text": "You will be presented with an image containing a receipt. Please parse the receipt and respond only with the format below: [{receipt_item: 'raw_receipt_name', value: 'no.of.items', name: 'name'}]. Based on the receipt item, find the closest corresponding actual item name as the name key, and the raw name as receipt_item. If the image does not contain a receipt, return an empty array. Do not respond to anything else.",
                             "text": """
 You are an AI trained to process and analyze receipts. Your task is to:
 
 1. *Scan the Receipt:*
    - Read and extract all text from the provided receipt image or digital copy.
    - Identify individual product entries on the receipt, including the product name, quantity, and price.
+   - If the provided image does not contain any receipt, do not include any unrelated information.
 
 2. *Identify Products:*
    - Match each product entry with the closest known real-life product from a comprehensive database. Consider factors such as product name similarity, category, and price range.
@@ -352,9 +341,6 @@ You are an AI trained to process and analyze receipts. Your task is to:
      - Closest known real-life product name
      - Category of the product
      - Quantity
-     - Price per unit (if available)
-     - Total price
-     - Number of plastic packaging used
      - Eco-friendliness score (0 - 1)
 
 5. *Tabulate Metrics:*
@@ -362,56 +348,88 @@ You are an AI trained to process and analyze receipts. Your task is to:
      - No. of items with plastic-free packaging
      - No. of plastic bags used
      - No. of clothing items bought from sustainable sources
-
-### Example Output:
-{
-details: [
-    {
-        'original_name': 'Organic Bananas',
-        'matched_name': 'Chiquita Organic Bananas',
-        'category': 'Produce',
-        'quantity': '1 bunch',
-        'price_per_unit': '$0.59',
-        'total_price': '$1.77',
-        'plastic_packaging_count': 0,
-        'eco-friendliness_score': 1
-    },
-    {
-        'original_name': '2L Diet Soda',
-        'matched_name': 'Coca-Cola Diet Soda 2L',
-        'category': 'Beverages',
-        'quantity': '1 bottle',
-        'price_per_unit': '$1.99',
-        'total_price': '$1.99',
-        'plastic_packaging_count': 1,
-        'eco-friendliness_score': 0.5
-    },
-    {
-        'original_name': 'Unknown Item',
-        'matched_name': 'N/A',
-        'category': 'N/A',
-        'quantity': 'N/A',
-        'price_per_unit': 'N/A',
-        'total_price': 'N/A',
-        'plastic_packaging_count': 0,
-        'eco-friendliness_score': 0
-    }
-],
-metrics: {
-    'plastic_free_packaging': 1,
-    'plastic_bags_used': 1,
-    'sustainable_clothing': 0
-}
-}
----
-
-Ensure that the information is accurate and strictly presented in json if there is a receipt, without any white spaces or newlines. If there is no receipt, return 'None' as a string. Do not respond to anything else.
                         """
                         }
 
                     ]
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_string_b64}"
+                            }
+                        }
+                    ]
+                },
+            ],
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "process_receipt",
+                        "description": "Only process receipts and return the data in the correct format",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "details": {
+                                    "type": "array",
+                                    "description": "The details of the receipt, if there is no parsable receipt, return an empty array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "original_name": {
+                                                "type": "string",
+                                                "description": "The original name of the item based on the receipt"
+                                            },
+                                            "matched_name": {
+                                                "type": "string",
+                                                "description": "The matched name of the item from the database"
+                                            },
+                                            "category": {
+                                                "type": "string",
+                                                "description": "The category of the item"
+                                            },
+                                            "quantity": {
+                                                "type": "string",
+                                                "description": "The quantity of the item"
+                                            },
+                                            "eco-friendliness_score": {
+                                                "type": "number",
+                                                "description": "The eco-friendliness score of the item from 0 to 100"
+                                            }
+                                        }
+                                    },
+                                    "required": ["original_name", "matched_name", "category", "quantity", "eco-friendliness_score"]
+                                },
+                                "metrics": {
+                                    "type": "object",
+                                    "description": "The metrics of the receipt, if there is no parsable receipt, return the default properties with a value of 0",
+                                    "properties": {
+                                        "plastic_free_packaging": {
+                                            "type": "number",
+                                            "description": "The number of items with plastic-free packaging"
+                                        },
+                                        "plastic_bags_used": {
+                                            "type": "number",
+                                            "description": "The number of plastic bags used"
+                                        },
+                                        "sustainable_clothing": {
+                                            "type": "number",
+                                            "description": "The number of clothing items bought from sustainable sources"
+                                        }
+                                    },
+                                    "required": ["plastic_free_packaging", "plastic_bags_used", "sustainable_clothing"]
+                                }
+                            },
+                            "required": ["details", "metrics"]
+                        }
+                    }
                 }
             ],
+            "tool_choice": {"type": "function", "function": {"name": "process_receipt"}},
             "max_tokens": 4096
         }
 
@@ -419,22 +437,21 @@ Ensure that the information is accurate and strictly presented in json if there 
             "https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
 
         json_data = response.json()
-        print(json_data)
         try:
-            message = json_data['choices'][0]['message']['content']
-            print(message)
+            message = json_data['choices'][0]['message']['tool_calls'][0]['function']['arguments']
             parsed_data = jsonify(
                 {"data": json.loads(message.strip()), "success": True})
         except:
+            print(json_data)
             parsed_data = jsonify(
                 {"error": "No receipt found", "success": False})
 
         return parsed_data
 
 
-@rest_api.route("/api/datacheck")
+@ rest_api.route("/api/datacheck")
 class Check(Resource):
-    @token_required
+    @ token_required
     def post(user, self):
         # dictionary for metrics and their quest_ids
         quest_id = {"plastic_bags_used": 1,
@@ -485,7 +502,7 @@ class Check(Resource):
         return {"success": True, "message": "User metrics updated successfully"}, 200
 
 
-@rest_api.route('/api/quests')
+@ rest_api.route('/api/quests')
 class Quest_all(Resource):
     def get(self):
         quests = Quests.query.all()
